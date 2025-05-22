@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extension Popup</title>
+    <style>
+        body {
+            width: 300px;
+            padding: 15px;
+            font-family: Arial, sans-serif;
+            margin: 0;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        label {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        select {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        input[type="text"] {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            min-height: 60px;
+            resize: vertical;
+        }
+
+        textarea {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            min-height: 80px;
+            resize: vertical;
+            font-family: Arial, sans-serif;
+        }
+
+        .error {
+            color: red;
+            font-size: 12px;
+            display: none;
+        }
+
+        .loading {
+            color: #666;
+            font-style: italic;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <label for="presetSelector">Choose a preset:</label>
+        <select id="presetSelector">
+            <option value="">Loading options...</option>
+        </select>
+
+        <div class="error" id="errorMessage"></div>
+
+        <label for="textInput">Text Input:</label>
+        <textarea id="textInput" placeholder="Type here or select a preset option above..."></textarea>
+    </div>
+
+    <script>
+        // Sample JSON data structure for testing
+        const sampleJsonData = {
+            "presets": [
+                {
+                    "label": "Email Template - Meeting Request",
+                    "value": "Hi [Name],\n\nI hope this email finds you well. I would like to schedule a meeting to discuss [Topic]. Are you available on [Date] at [Time]?\n\nBest regards,\n[Your Name]"
+                },
+                {
+                    "label": "Email Template - Follow Up",
+                    "value": "Hi [Name],\n\nI wanted to follow up on our previous conversation about [Topic]. Please let me know if you need any additional information.\n\nThank you,\n[Your Name]"
+                },
+                {
+                    "label": "Quick Response - Thank You",
+                    "value": "Thank you for your email. I'll get back to you within 24 hours."
+                },
+                {
+                    "label": "Quick Response - Out of Office",
+                    "value": "I'm currently out of office and will return on [Date]. For urgent matters, please contact [Alternative Contact]."
+                },
+                {
+                    "label": "Code Snippet - Function Template",
+                    "value": "function functionName(parameter) {\n    // Your code here\n    return result;\n}"
+                }
+            ]
+        };
+
+        class PresetLoader {
+            constructor() {
+                this.selector = document.getElementById('presetSelector');
+                this.textInput = document.getElementById('textInput');
+                this.errorDiv = document.getElementById('errorMessage');
+
+                this.init();
+            }
+
+            async init() {
+                try {
+                    // In a real Chrome extension, you would load from a file like this:
+                    // const response = await fetch(chrome.runtime.getURL('options.json'));
+                    // const data = await response.json();
+
+                    // For testing, we'll use the sample data
+                    await this.simulateAsyncLoad();
+                    this.populateSelector(sampleJsonData);
+                    this.setupEventListeners();
+
+                } catch (error) {
+                    this.showError('Failed to load preset options: ' + error.message);
+                }
+            }
+
+            // Simulate async loading for testing
+            async simulateAsyncLoad() {
+                return new Promise(resolve => setTimeout(resolve, 500));
+            }
+
+            // In a real extension, use this method instead:
+            async loadJsonFromFile(filename) {
+                try {
+                    const url = chrome.runtime.getURL(filename);
+                    const response = await fetch(url);
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    return data;
+                } catch (error) {
+                    throw new Error(`Failed to load ${filename}: ${error.message}`);
+                }
+            }
+
+            populateSelector(data) {
+                // Clear existing options
+                this.selector.innerHTML = '';
+
+                // Add default option
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = 'Select a preset...';
+                this.selector.appendChild(defaultOption);
+
+                // Handle different JSON structures
+                let presets = [];
+
+                if (Array.isArray(data)) {
+                    // Simple array: ["option1", "option2"]
+                    presets = data.map(item => ({
+                        label: item,
+                        value: item
+                    }));
+                } else if (data.presets && Array.isArray(data.presets)) {
+                    // Structured with presets array
+                    presets = data.presets;
+                } else if (typeof data === 'object') {
+                    // Object with key-value pairs
+                    presets = Object.entries(data).map(([key, value]) => ({
+                        label: key,
+                        value: value
+                    }));
+                }
+
+                // Populate options
+                presets.forEach(preset => {
+                    const option = document.createElement('option');
+                    option.value = preset.value;
+                    option.textContent = preset.label;
+                    this.selector.appendChild(option);
+                });
+
+                console.log(`Loaded ${presets.length} preset options`);
+            }
+
+            setupEventListeners() {
+                this.selector.addEventListener('change', (event) => {
+                    const selectedValue = event.target.value;
+                    if (selectedValue) {
+                        this.insertTextAtCursor(selectedValue);
+                    }
+                });
+            }
+
+            insertTextAtCursor(text) {
+                const textarea = this.textInput;
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                const currentValue = textarea.value;
+
+                // Insert text at cursor position
+                const newValue = currentValue.substring(0, start) + text + currentValue.substring(end);
+                textarea.value = newValue;
+
+                // Set cursor position after inserted text
+                const newCursorPos = start + text.length;
+                textarea.setSelectionRange(newCursorPos, newCursorPos);
+                textarea.focus();
+            }
+
+            showError(message) {
+                this.errorDiv.textContent = message;
+                this.errorDiv.style.display = 'block';
+
+                // Update selector to show error state
+                this.selector.innerHTML = '<option value="">Error loading options</option>';
+            }
+        }
+
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            new PresetLoader();
+        });
+
+        // Example of how to use this in a Chrome extension:
+        /*
+        // In your manifest.json, make sure to include:
+        {
+            "web_accessible_resources": [
+                {
+                    "resources": ["options.json"],
+                    "matches": ["<all_urls>"]
+                }
+            ]
+        }
+        
+        // Then replace the simulateAsyncLoad() call with:
+        const data = await this.loadJsonFromFile('options.json');
+        */
+    </script>
+</body>
+
+</html>

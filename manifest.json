@@ -1,0 +1,8 @@
+{
+    "manifest_version": 3,
+    "name": "expo2025-venues-selector",
+    "version": "0.0.1",
+    "action": {
+        "default_popup": "popup/index.html"
+    }
+}
